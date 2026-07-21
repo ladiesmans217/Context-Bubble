@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.window", "dom", "dom.iterable", "esnext"],
+    "strict": true
+  },
+  "nodeModulesDir": "manual",
+  "tasks": {
+    "check:edge": "deno check supabase/functions/api/index.ts supabase/functions/mcp-server/index.ts"
+  }
+}

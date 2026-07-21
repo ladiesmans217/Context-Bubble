@@ -1,0 +1,22 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "."]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "${_IMAGE}"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - context-bubble-api
+      - --image=${_IMAGE}
+      - --region=asia-south1
+      - --platform=managed
+      # Cloud Run accepts transport-level public traffic; the service enforces
+      # installation/user authentication and rate limits at every API boundary.
+      - --allow-unauthenticated
+      - --set-secrets=OPENAI_API_KEY=OPENAI_API_KEY:latest,INSTALLATION_TOKEN_SECRET=INSTALLATION_TOKEN_SECRET:latest
+substitutions:
+  _IMAGE: asia-south1-docker.pkg.dev/$PROJECT_ID/context-bubble/backend:$COMMIT_SHA
+images:
+  - ${_IMAGE}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">Context Bubble screen access</string>
+    <string name="accessibility_service_description">Reads only the focused field and screen context you explicitly ask about, inserts approved text, and hides itself on protected apps.</string>
+    <string name="notification_channel_bubble">Floating assistant</string>
+    <string name="notification_channel_reminders">Reminders</string>
+    <string name="notification_bubble_title">Context Bubble is ready</string>
+    <string name="notification_bubble_text">Idle — microphone and AI are off</string>
+</resources>
+

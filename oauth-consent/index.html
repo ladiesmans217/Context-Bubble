@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Connect Context Bubble</title>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="card" aria-live="polite">
+        <div class="mark" aria-hidden="true">CB</div>
+        <p class="eyebrow">CONTEXT BUBBLE</p>
+        <h1 id="title">Review connection</h1>
+        <p id="status">Checking this authorization request…</p>
+        <div id="details" hidden>
+          <div class="client"><span>Requesting client</span><strong id="client-name"></strong></div>
+          <div class="permission">
+            <strong>Read approved shared memories</strong>
+            <span>Search and retrieve only memories you explicitly saved as Shared Cloud.</span>
+          </div>
+          <div class="permission">
+            <strong>Prepare memory changes</strong>
+            <span>Any write or deletion still needs an exact preview and a separate confirmation. Local-only data is never exposed.</span>
+          </div>
+          <p class="scopes">Identity scopes: <span id="scopes"></span></p>
+          <div class="actions">
+            <button id="deny" class="secondary">Deny</button>
+            <button id="approve">Allow connection</button>
+          </div>
+        </div>
+        <button id="sign-in" hidden>Sign in with Google</button>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
