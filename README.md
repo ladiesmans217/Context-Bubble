@@ -203,3 +203,7 @@ Production capabilities are released behind server configuration flags so a clou
 - ChatGPT accesses Shared AI memory only through the connected Context Bubble MCP; it does not continuously monitor the phone or inherit native ChatGPT Memory.
 - Image clipboard support varies by target application, so Share and Save remain reliable fallbacks.
 - The Play build can prepare supported actions but does not give a model unrestricted control over arbitrary taps, scrolling, credentials, purchases, or sending messages.
+
+## License
+
+Context Bubble is available under the [MIT License](LICENSE). Copyright © 2026 Manjunath Patil.
