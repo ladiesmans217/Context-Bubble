@@ -178,9 +178,13 @@ function parseCloudMemoryPayload(input: unknown, expectedId: string): CloudMemor
   if (!input || typeof input !== "object") throw new ValidationError("UPSERT mutation requires payload");
   const value = input as Record<string, unknown>;
   if (value.id !== expectedId) throw new ValidationError("payload.id must match mutation.id");
-  const requiredStrings = ["type", "summary", "value", "sensitivity"] as const;
+  const requiredStrings = ["type", "summary", "value"] as const;
   for (const field of requiredStrings) {
     if (typeof value[field] !== "string" || value[field].length === 0) throw new ValidationError(`payload.${field} is invalid`);
+  }
+  const sensitivity = value.sensitivity ?? "normal";
+  if (typeof sensitivity !== "string" || sensitivity.length === 0 || sensitivity.length > 80) {
+    throw new ValidationError("payload.sensitivity is invalid");
   }
   if ((value.summary as string).length > 1_000 || (value.value as string).length > 8_000) {
     throw new ValidationError("memory payload is too large");
@@ -195,7 +199,7 @@ function parseCloudMemoryPayload(input: unknown, expectedId: string): CloudMemor
   if (value.sourcePackage != null && (typeof value.sourcePackage !== "string" || value.sourcePackage.length > 255)) {
     throw new ValidationError("payload.sourcePackage is invalid");
   }
-  return value as CloudMemoryPayload;
+  return { ...value, sensitivity } as CloudMemoryPayload;
 }
 
 function validateScreen(value: unknown): asserts value is ScreenContext {

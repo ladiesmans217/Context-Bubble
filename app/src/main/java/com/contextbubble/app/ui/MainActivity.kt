@@ -131,6 +131,7 @@ import com.contextbubble.app.data.LocalCapture
 import com.contextbubble.app.data.QuickFillItem
 import com.contextbubble.app.data.VaultMemory
 import com.contextbubble.app.domain.RetentionPolicy
+import com.contextbubble.app.domain.MemoryScope
 import com.contextbubble.app.overlay.BubbleService
 import com.contextbubble.app.overlay.BubbleActionBridge
 import com.contextbubble.app.overlay.OverlayShareActions
@@ -1115,6 +1116,30 @@ private fun SettingsScreen(modifier: Modifier, settings: AppSettings) {
                                         cloudMessage = "Signed out. Local data remains on this phone."
                                     }
                                 }) { Text("Sign out") }
+                            }
+                            if (BuildConfig.DEBUG) {
+                                FilledTonalButton(onClick = {
+                                    scope.launch {
+                                        cloudMessage = "Saving demo memory…"
+                                        runCatching {
+                                            context.appContainer.vault.saveMemory(
+                                                type = "demo_fact",
+                                                summary = "Context Bubble recording fact",
+                                                value = "My demo project codename is Forest Orbit.",
+                                                scope = MemoryScope.SHARED_AI,
+                                                sourcePackage = context.packageName,
+                                                retention = RetentionPolicy.UNTIL_DELETE,
+                                                pinned = true,
+                                            )
+                                            context.appContainer.cloudMemorySync.sync()
+                                        }.onSuccess {
+                                            cloudRefresh++
+                                            cloudMessage = "Demo memory saved to Supabase."
+                                        }.onFailure {
+                                            cloudMessage = it.message ?: "Demo memory will retry automatically."
+                                        }
+                                    }
+                                }) { Text("Add demo cloud memory") }
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedButton(onClick = {

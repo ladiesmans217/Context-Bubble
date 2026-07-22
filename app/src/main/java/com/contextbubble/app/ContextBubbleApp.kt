@@ -6,7 +6,9 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.work.Configuration
 import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.NetworkType
@@ -46,11 +48,27 @@ class ContextBubbleApp : Application(), Configuration.Provider {
                 .build(),
         )
         CloudMemorySyncScheduler.schedulePeriodic(this)
+        val policyConstraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
+            .build()
+        val policyPreferences = getSharedPreferences("signed_package_policy", MODE_PRIVATE)
+        val needsInitialPolicyRefresh = policyPreferences.getInt("version", 0) <= 0 ||
+            policyPreferences.getLong("expires_at", 0L) <= System.currentTimeMillis()
+        if (BuildConfig.POLICY_SIGNING_PUBLIC_KEY_DER_BASE64.isNotBlank() && needsInitialPolicyRefresh) {
+            WorkManager.getInstance(this).enqueueUniqueWork(
+                "signed-package-policy-initial-refresh",
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<PackagePolicyRefreshWorker>()
+                    .setConstraints(policyConstraints)
+                    .build(),
+            )
+        }
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "signed-package-policy-refresh",
             ExistingPeriodicWorkPolicy.UPDATE,
             PeriodicWorkRequestBuilder<PackagePolicyRefreshWorker>(1, TimeUnit.DAYS)
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresBatteryNotLow(true).build())
+                .setConstraints(policyConstraints)
                 .build(),
         )
     }

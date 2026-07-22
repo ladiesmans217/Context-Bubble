@@ -21,7 +21,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
-        buildConfigField("String", "BACKEND_BASE_URL", "\"https://api.contextbubble.app/\"")
+        val managedBackendUrl = providers.environmentVariable("MANAGED_BACKEND_URL")
+            .orElse(providers.gradleProperty("managedBackendUrl"))
+            .getOrElse("https://oxrytpcmkqkprqefzkrf.supabase.co/functions/v1/api/")
+        require(managedBackendUrl.startsWith("https://") && managedBackendUrl.endsWith("/")) {
+            "Managed backend URL must use HTTPS and end with a slash"
+        }
+        buildConfigField("String", "BACKEND_BASE_URL", "\"${managedBackendUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         val policyPublicKey = providers.environmentVariable("POLICY_SIGNING_PUBLIC_KEY_DER_BASE64")
             .orElse(providers.gradleProperty("policySigningPublicKeyDerBase64"))
             .getOrElse("")

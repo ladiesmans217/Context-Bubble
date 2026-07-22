@@ -33,4 +33,19 @@ describe("cloud memory contracts", () => {
       ValidationError,
     );
   });
+
+  it("defaults omitted Android sensitivity to normal", () => {
+    const id = "018f6f25-9cf1-7d6b-8b27-728fb9d06012";
+    const parsed = parseMemorySyncRequest({
+      cursor: 0,
+      mutations: [{
+        operation: "UPSERT",
+        id,
+        baseVersion: 0,
+        idempotencyKey: "018f6f25-9cf2-7d6b-8b27-728fb9d06012",
+        payload: { id, type: "fact", summary: "Summary", value: "Value", createdAtEpochMs: 1, pinned: false },
+      }],
+    });
+    assert.equal(parsed.mutations[0]?.payload?.sensitivity, "normal");
+  });
 });

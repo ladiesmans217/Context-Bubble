@@ -1,9 +1,11 @@
 package com.contextbubble.app.cloud
 
 import android.content.Context
+import com.contextbubble.app.BuildConfig
 import com.contextbubble.app.data.CryptoBox
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +29,7 @@ sealed interface AccountState {
 }
 
 class AccountRepository(
-    context: Context,
+    private val context: Context,
     private val crypto: CryptoBox,
     private val configuration: CloudConfigurationRepository,
 ) {
@@ -42,6 +44,34 @@ class AccountRepository(
     private val refreshMutex = Mutex()
     private val mutableState = MutableStateFlow(loadPersistedState())
     val state: StateFlow<AccountState> = mutableState.asStateFlow()
+
+    suspend fun signInForLocalDebug(): AccountState = withContext(Dispatchers.IO) {
+        val baseUrl = configuration.baseUrl()
+        val capabilities = configuration.capabilities(forceRefresh = true)
+        val supabaseUrl = capabilities.supabaseUrl ?: throw IOException("Supabase URL is not configured")
+        val localDebug = BuildConfig.DEBUG && (
+            baseUrl.startsWith("http://127.0.0.1") ||
+                baseUrl.startsWith("http://localhost") ||
+                baseUrl.startsWith("http://10.0.2.2")
+            )
+        if (!localDebug) throw IOException("Local debug sign-in is unavailable")
+        val installationPreferences = context.getSharedPreferences("installation_identity", Context.MODE_PRIVATE)
+        val installationId = installationPreferences.getString("id", null)
+            ?: UUID.randomUUID().toString().also { installationPreferences.edit().putString("id", it).apply() }
+        val request = Request.Builder()
+            .url("$baseUrl/v1/debug/session")
+            .post(json.encodeToString(DebugSessionRequest(installationId)).toRequestBody(JSON_MEDIA))
+            .build()
+        client.newCall(request).execute().use { response ->
+            val raw = response.body?.string().orEmpty()
+            if (!response.isSuccessful) throw IOException(authError(raw, response.code))
+            val session = json.decodeFromString<SupabaseSession>(raw)
+            persist(session, supabaseUrl)
+            val next = AccountState.SignedIn(session.user.id, "Local demo account")
+            mutableState.value = next
+            next
+        }
+    }
 
     suspend fun exchangeGoogleIdToken(idToken: String, rawNonce: String): AccountState = withContext(Dispatchers.IO) {
         val capabilities = configuration.capabilities(forceRefresh = true)
@@ -168,6 +198,9 @@ private data class IdTokenRequest(
 
 @Serializable
 private data class RefreshRequest(@SerialName("refresh_token") val refreshToken: String)
+
+@Serializable
+private data class DebugSessionRequest(val installationId: String)
 
 @Serializable
 private data class SupabaseSession(

@@ -35,6 +35,10 @@ The idle path owns one classic Android overlay `View` and an event-driven Access
 
 ## Build and test
 
+Release builds default to the deployed development Edge API. Override it for a
+production/custom domain with `MANAGED_BACKEND_URL` or the
+`managedBackendUrl` Gradle property; the value must use HTTPS and end in `/`.
+
 Requirements: Android SDK 36, JDK 17+, and Node.js 22+.
 
 ```powershell

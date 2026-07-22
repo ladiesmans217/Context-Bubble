@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
+import { createClient } from "@supabase/supabase-js";
 import type { Config } from "./config.ts";
 import { AuthError, authenticateHeaders, createInstallationToken } from "./auth.ts";
 import { parseAssistRequest, parseMemorySearchRequest, parseMemorySyncRequest, ValidationError } from "./contracts.ts";
@@ -85,6 +86,40 @@ export function createHonoApi(config: Config, dependencies: HonoDependencies = {
       else integrity.verifyLabInvite(typeof body.inviteCredential === "string" ? body.inviteCredential : undefined);
     }
     return context.json({ token: createInstallationToken(config, body.installationId), expiresInSeconds: 86_400 }, 201);
+  });
+
+  app.post("/v1/debug/session", async (context) => {
+    if (config.production) return context.json(errorEnvelope(context.get("requestId"), "not_found", "Route was not found"), 404);
+    if (!config.supabaseUrl || !config.supabasePublishableKey || !config.supabaseSecretKey) {
+      return context.json(errorEnvelope(context.get("requestId"), "not_configured", "Supabase debug sign-in is not configured"), 503);
+    }
+    const body = await context.req.json<{ installationId?: unknown }>();
+    if (typeof body.installationId !== "string" || body.installationId.length < 8 || body.installationId.length > 128) {
+      throw new ValidationError("installationId must contain 8 to 128 characters");
+    }
+    const digest = new Uint8Array(await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(`${config.installationTokenSecret}:${body.installationId}`),
+    ));
+    const fingerprint = [...digest].map((value) => value.toString(16).padStart(2, "0")).join("");
+    const email = `debug-${fingerprint.slice(0, 32)}@contextbubble.local`;
+    const password = `${fingerprint}Aa1!`;
+    const admin = createClient(config.supabaseUrl, config.supabaseSecretKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    if (created.error && !/already.*registered|already.*exists/i.test(created.error.message)) throw created.error;
+    const publicClient = createClient(config.supabaseUrl, config.supabasePublishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    const signedIn = await publicClient.auth.signInWithPassword({ email, password });
+    if (signedIn.error || !signedIn.data.session || !signedIn.data.user) throw signedIn.error ?? new Error("Debug sign-in failed");
+    return context.json({
+      access_token: signedIn.data.session.access_token,
+      refresh_token: signedIn.data.session.refresh_token,
+      expires_in: signedIn.data.session.expires_in,
+      user: { id: signedIn.data.user.id, email: signedIn.data.user.email },
+    });
   });
 
   app.post("/v1/assist", async (context) => {

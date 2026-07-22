@@ -184,6 +184,14 @@ export class CloudMemoryService {
       if (error) throw new CloudMemoryError("cloud_write_failed", error.message);
       if (!data?.length) return this.conflictAfterRace(client, user, mutation);
       await this.audit(client, user.id, mutation.id, "DELETE");
+      if (!this.config.production) {
+        const { error: demoError } = await client
+          .from("memory_demo_catalog")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("memory_id", mutation.id);
+        if (demoError) throw new CloudMemoryError("demo_catalog_failed", demoError.message);
+      }
       await this.storeIdempotency(client, user.id, mutation, null);
       return null;
     }
@@ -229,6 +237,16 @@ export class CloudMemoryService {
       if (error) throw new CloudMemoryError("cloud_write_failed", error.message);
       if (!data?.length) return this.conflictAfterRace(client, user, mutation);
       await this.audit(client, user.id, mutation.id, "UPDATE");
+    }
+    if (!this.config.production) {
+      const { error: demoError } = await client.from("memory_demo_catalog").upsert({
+        user_id: user.id,
+        memory_id: mutation.id,
+        summary: payload.summary,
+        value: payload.value,
+        updated_at: new Date().toISOString(),
+      });
+      if (demoError) throw new CloudMemoryError("demo_catalog_failed", demoError.message);
     }
     await this.storeIdempotency(client, user.id, mutation, null);
     return null;

@@ -33,7 +33,7 @@ class CloudMemorySyncClient(
     private val settings: SettingsRepository,
     private val vault: LocalVaultRepository,
 ) {
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false; encodeDefaults = true }
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

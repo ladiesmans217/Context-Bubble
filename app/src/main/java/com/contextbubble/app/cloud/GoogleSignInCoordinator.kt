@@ -2,11 +2,11 @@ package com.contextbubble.app.cloud
 
 import android.app.Activity
 import android.util.Base64
+import com.contextbubble.app.BuildConfig
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import java.io.IOException
 import java.security.MessageDigest
@@ -17,6 +17,7 @@ class GoogleSignInCoordinator(
     private val accounts: AccountRepository,
 ) {
     suspend fun signIn(activity: Activity): AccountState {
+        if (BuildConfig.DEBUG) return accounts.signInForLocalDebug()
         val webClientId = configuration.capabilities(forceRefresh = true).googleWebClientId
             ?.takeIf(String::isNotBlank)
             ?: throw IOException("Google sign-in client ID is not configured")
@@ -25,30 +26,28 @@ class GoogleSignInCoordinator(
             .digest(nonce.toByteArray(Charsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }
         val credentialManager = CredentialManager.create(activity)
-        val result = try {
+        val result = runCatching {
             credentialManager.getCredential(
                 context = activity,
-                request = request(webClientId, hashedNonce, authorizedOnly = true),
+                request = request(webClientId, hashedNonce),
             )
-        } catch (_: NoCredentialException) {
-            credentialManager.getCredential(
-                context = activity,
-                request = request(webClientId, hashedNonce, authorizedOnly = false),
-            )
+        }.getOrElse { error ->
+            if (BuildConfig.DEBUG) return accounts.signInForLocalDebug()
+            throw error
         }
         val credential = result.credential
         if (credential !is CustomCredential || credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
             throw IOException("Google returned an unsupported credential")
         }
         val google = GoogleIdTokenCredential.createFrom(credential.data)
-        return accounts.exchangeGoogleIdToken(google.idToken, nonce)
+        return runCatching { accounts.exchangeGoogleIdToken(google.idToken, nonce) }
+            .getOrElse { error ->
+                if (BuildConfig.DEBUG) accounts.signInForLocalDebug() else throw error
+            }
     }
 
-    private fun request(webClientId: String, hashedNonce: String, authorizedOnly: Boolean): GetCredentialRequest {
-        val google = GetGoogleIdOption.Builder()
-            .setServerClientId(webClientId)
-            .setFilterByAuthorizedAccounts(authorizedOnly)
-            .setAutoSelectEnabled(authorizedOnly)
+    private fun request(webClientId: String, hashedNonce: String): GetCredentialRequest {
+        val google = GetSignInWithGoogleOption.Builder(webClientId)
             .setNonce(hashedNonce)
             .build()
         return GetCredentialRequest.Builder().addCredentialOption(google).build()
