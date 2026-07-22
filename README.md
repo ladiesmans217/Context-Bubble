@@ -1,43 +1,120 @@
 # Context Bubble
 
-Context Bubble is a privacy-first Android assistant that stays available through a lightweight edge-docked overlay. It supports user-invoked screen understanding, streaming answers, Realtime voice, dictation insertion, approved cloud memory, local Quick Fill, reminders, image generation, Google Calendar, and a read/write ChatGPT MCP connection.
+**A privacy-first Android assistant that stays beside your work instead of pulling you away from it.**
 
-The idle path owns one classic Android overlay `View` and an event-driven Accessibility listener. It has no idle microphone, WebRTC/Supabase socket, polling loop, screenshot, AI request, animation loop, sensor subscription, or wake lock.
+Context Bubble is a lightweight, edge-docked assistant for Android 13+. It can understand a screen only when the user asks, answer without leaving the current app, hold a Realtime voice conversation, insert polished dictation, create reminders, generate images, fill reusable details, and retain only the memories the user approves.
+
+The idea came from a simple frustration: useful context is usually trapped inside the app where it appeared. If a message says “email me on Tuesday,” the normal workflow is to switch apps, copy details, explain the context again, and manually create a reminder. Context Bubble turns that into one intentional interaction while keeping the user in control.
+
+## See it in action
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/context-bubble-overlay-menu.jpg" width="240" alt="Context Bubble menu displayed over Brave"></td>
+    <td align="center"><img src="docs/images/context-bubble-home-privacy.png" width="240" alt="Context Bubble home and assistant health screen"></td>
+    <td align="center"><img src="docs/images/context-bubble-controls-retention.png" width="240" alt="Context Bubble privacy and retention controls"></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Available in the current app</strong><br>Ask, remember, generate, fill, or create a reminder.</td>
+    <td align="center"><strong>Permission health at a glance</strong><br>Every missing capability has a visible repair path.</td>
+    <td align="center"><strong>Private by default</strong><br>Voice mode, retention, and encrypted storage stay user-controlled.</td>
+  </tr>
+</table>
+
+## How it works
+
+1. The bubble remains quietly docked to a safe screen edge over allowed applications.
+2. The user taps it and chooses **Ask about screen**, **Remember**, **Generate image**, **Quick Fill**, or **Reminder**.
+3. Context Bubble checks the current package and sensitive-screen policy before reading anything.
+4. It captures only the context needed for that explicit request and streams the result into an overlay over the current app.
+5. The user can copy, save, edit, confirm, retry, or close the result. External writes always receive an exact preview and confirmation.
+
+A long press starts a live assistant conversation by default. An optional setting turns the same gesture into transcription-only mode, which inserts into the focused field and preserves the transcript in the clipboard if insertion fails.
+
+## What you can do
+
+- **Ask about the screen:** understand, summarize, translate, extract tasks, or draft a response from the current screen without switching applications.
+- **Talk naturally:** use Realtime WebRTC voice with spoken replies, interruption, a short warm continuation window, and buffered transcription fallback.
+- **Dictate anywhere:** insert polished speech into the focused editor with wrong-target protection, cursor preservation, paste fallback, and clipboard recovery.
+- **Remember intentionally:** review or edit a structured memory candidate before saving it locally or to Shared AI memory.
+- **Generate from context:** create an image from an explicitly shared screen and request, then copy, share, save, regenerate, or delete it.
+- **Quick Fill safely:** insert names, email addresses, phone numbers, addresses, and custom snippets. Passwords, payment cards, PINs, and OTPs are prohibited.
+- **Create reminders:** extract a title, time, timezone, recurrence, and source, then confirm a local reminder or optional Google Calendar event.
+- **Keep a usable vault:** browse approved memories, transcripts, screenshots, generated images, snippets, and recent results with configurable retention.
+
+## Memory that the user owns
+
+Context Bubble separates data into three lanes so “using context” never silently becomes “remembering everything.”
+
+| Lane | Purpose | Leaves the phone? |
+|---|---|---|
+| **Ephemeral context** | Used only for the active request, then discarded | Only the minimum request context sent to the assistant |
+| **Local only** | Quick Fill, private notes, raw captures, transcripts, and vault items | No, unless explicitly shared for one action |
+| **Shared AI** | User-approved facts available across Context Bubble sessions | Yes, encrypted and synchronized after sign-in |
+
+Context Bubble also exposes its own authenticated MCP server. After the user connects it and grants access, ChatGPT can search approved Shared AI memories and prepare changes. Writes and deletes use a two-stage preview plus a ten-minute, one-use confirmation token.
+
+This does **not** modify native ChatGPT Memory. Context Bubble remains the source of truth, and local-only data is never exposed through MCP.
+
+## Privacy is a hard boundary
+
+- No idle microphone, screenshot, AI request, WebRTC connection, Supabase Realtime socket, polling loop, animation loop, sensor subscription, or wake lock.
+- Screen context is processed only after a bubble action; screenshots respect Android's protected-window rules.
+- Financial, UPI, password-manager, authenticator, OTP, biometric, permission, installer, and system credential surfaces are hard-blocked.
+- Users can search installed applications and add their own bubble exclusions, but they cannot weaken mandatory hard blocks.
+- Raw screenshots and recordings never enter Supabase Database or Storage. Generated images are cloud-saved only after **Save** and are encrypted before upload.
+- Screen text and stored memories are treated as untrusted data. Model output cannot directly authorize device actions.
+- Local files use AES-256-GCM with Android Keystore-protected keys. Private screens are excluded from backups and app-switcher previews.
+- Messages, calendar writes, uploads, edits, deletions, and other consequential actions require a precise preview and confirmation.
+
+## What makes Context Bubble different
+
+- **It stays in the workflow.** Answers and controls appear over the current application instead of repeatedly opening a separate assistant app.
+- **It is consent-driven.** Availability is persistent; capture and long-term memory are not.
+- **It has explicit memory boundaries.** Ephemeral, local-only, and shared data cannot silently collapse into one store.
+- **It is Android-native.** Overlay geometry, insets, Accessibility insertion, audio routing, foreground-service recovery, clipboard fallback, and secure-screen policy are implemented at the platform level.
+- **It separates public and experimental automation.** The Play build uses safe intents and user-confirmed actions; deterministic Accessibility actuators exist only in the separately identified Lab build.
+
+## Current implementation status
+
+| Capability | Status |
+|---|---|
+| Persistent overlay, in-app answer cards, Quick Fill, local vault, exclusions, and reminders | Implemented on Android |
+| Screen understanding, image generation, buffered transcription, and Realtime voice | Implemented; requires the configured OpenAI backend |
+| Supabase authentication, encrypted cloud memory, sync, conflict handling, and semantic retrieval | Implemented; cloud features remain optional |
+| Context Bubble read/write MCP | Implemented; requires OAuth consent and a compatible ChatGPT connector |
+| Google Calendar synchronization | Implemented; requires separate least-privilege Google authorization |
+| Deterministic Accessibility automation | Lab APK only; compile-time excluded from Play |
+| iOS system-wide bubble | Outside the current scope because iOS has no equivalent arbitrary overlay API |
 
 ## Architecture
 
-- Native Kotlin, Android 13+ (`minSdk 33`, `targetSdk 36`).
-- Compose for the app shell; classic `View` overlays for the persistent bubble and response surfaces.
-- Separate Play and Lab application IDs. Lab-only Accessibility actuators are compile-time excluded from Play.
-- Room v2 with a non-destructive v1→v2 migration, encrypted local files, Keystore-protected keys, DataStore, and constrained WorkManager sync.
-- Shared Hono TypeScript API used by the local Node adapter and Supabase Edge Functions.
-- Supabase Auth, Postgres/pgvector, private Storage, OAuth 2.1, RLS, and built-in `gte-small` embeddings.
-- OpenAI Responses SSE, transcription, Realtime WebRTC, and image APIs; all permanent credentials remain server-side.
-- Context Bubble MCP tools for approved shared memories. This is app-owned memory, not native ChatGPT Memory.
+```mermaid
+flowchart LR
+    A[Android bubble] --> B[Device policy and consent]
+    B --> C[Encrypted local vault]
+    B --> D[Context Bubble API]
+    D --> E[OpenAI APIs]
+    D --> F[Supabase shared memory]
+    G[ChatGPT] --> H[Context Bubble MCP]
+    H --> F
+```
 
-## Implemented product paths
+- Native Kotlin with `minSdk 33` and `targetSdk 36`.
+- Jetpack Compose for the app shell and shallow classic Android `View` overlays for the persistent bubble and response surfaces.
+- Room, DataStore, Android Keystore, coroutines/Flow, Hilt, and constrained WorkManager synchronization.
+- A shared Hono TypeScript implementation used by the local Node adapter and Supabase Edge Functions.
+- Supabase Auth, Postgres/pgvector, private Storage, OAuth, RLS, and 384-dimensional embeddings.
+- OpenAI Responses streaming, transcription, Realtime WebRTC, and image generation. Permanent credentials remain server-side.
+- Separate Play and Lab application IDs with compile-time artifact-isolation checks.
 
-- Persistent edge bubble with safe status-bar, cutout, gesture, navigation, orientation, and IME bounds.
-- Tap actions stay in the current app: Ask about screen, Remember, Generate image, Quick Fill, Reminder, and Pause.
-- Streaming answer overlay with Copy, Save, Retry, and Close.
-- Long-press Realtime WebRTC conversation with barge-in, 20-second warm continuation, two-minute ceiling, device-side screen/memory/reminder tools, and encrypted buffered fallback.
-- Optional transcription-only long press with wrong-target protection and clipboard fallback.
-- Three memory lanes: ephemeral, local-only, and user-approved Shared AI.
-- Optimistic cloud sync, cursors, conflicts, 30-day tombstones, idempotency, semantic retrieval, and no idle Realtime subscription.
-- Google sign-in through Credential Manager and Supabase native ID-token exchange.
-- MCP read tools plus two-stage, ten-minute, one-use write/delete confirmations.
-- OAuth-client RLS isolation: OAuth tokens cannot bypass MCP by calling PostgREST or Storage directly.
-- Google Calendar `calendar.events` authorization, encrypted refresh tokens, exact signed previews, one-use confirmations, and deterministic event idempotency.
-- Signed package policy with Ed25519 verification, downgrade/expiry rejection, last-known-good fallback, and optional signing-certificate fingerprints.
-- Play Integrity Standard verification for production Play registration; private invite registration for Lab.
-- Optional AutofillService limited to name, email, phone, and address. Passwords, cards, PINs, and OTPs are prohibited.
-- Cloud quota dashboard, export, destructive two-stage cloud deletion, integration/MCP revocation, daily usage limits, cleanup, and encrypted weekly backup tooling.
+## Performance and reliability
+
+The idle path owns one small overlay view and an event-driven Accessibility listener. It does not continuously traverse view trees or keep cloud connections alive. Drag updates are frame-coalesced, overlay geometry follows live system insets, and network synchronization runs through constrained background work.
+
+The primary development device is a Motorola moto g54 5G running Android 15. Automated suites cover gesture state, inset clamping, sensitive-package precedence, target revalidation, encryption, memory-lane isolation, sync conflicts, idempotency, MCP confirmation security, and Play/Lab isolation. See the [performance contract](docs/PERFORMANCE.md) and [validation record](docs/VALIDATION.md) for the numerical gates and current evidence.
 
 ## Build and test
-
-Release builds default to the deployed development Edge API. Override it for a
-production/custom domain with `MANAGED_BACKEND_URL` or the
-`managedBackendUrl` Gradle property; the value must use HTTPS and end in `/`.
 
 Requirements: Android SDK 36, JDK 17+, and Node.js 22+.
 
@@ -55,50 +132,43 @@ npm install
 npm run build
 ```
 
-APKs are written to:
+Debug APKs are written to:
 
 - `app/build/outputs/apk/play/debug/app-play-debug.apk`
 - `app/build/outputs/apk/lab/debug/app-lab-debug.apk`
 
-Use `adb install -r` so the current Room database, permissions, and app data survive upgrades. Never uninstall or clear data during the normal fix/test loop.
+Install upgrades with `adb install -r` so the Room database, permissions, and application data survive.
 
-## Local phone testing
+### Local phone testing
 
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 & $adb reverse tcp:8787 tcp:8787
 
 cd backend
-Copy-Item .env.example .env   # once; then fill private values
+Copy-Item .env.example .env
 npm run dev
 ```
 
-The current local `.env` needs only `OPENAI_API_KEY`, `OPENAI_MODEL_PROFILE=budget`, and a strong `INSTALLATION_TOKEN_SECRET` for AI-only testing. Cloud, MCP, Calendar, signed policy, and production Play Integrity activate only when their complete server configuration is present. See [backend/.env.example](backend/.env.example) for every variable.
+For AI-only local testing, configure `OPENAI_API_KEY`, `OPENAI_MODEL_PROFILE=budget`, and a strong `INSTALLATION_TOKEN_SECRET`. Cloud, MCP, Calendar, signed policy, and production Play Integrity activate only when their complete server configuration is present. See [`backend/.env.example`](backend/.env.example) for every variable.
 
-Production rollout switches default to off. Adding secrets alone does not expose cloud memory, semantic search, MCP, Realtime, Calendar, or signed-policy endpoints. Enable them one at a time after the dev gate.
+Release builds default to the deployed development Edge API. A production or compatible custom endpoint can be supplied through `MANAGED_BACKEND_URL` or the `managedBackendUrl` Gradle property; it must use HTTPS and end in `/`.
 
-Android build-only values are `POLICY_SIGNING_PUBLIC_KEY_DER_BASE64`, `PLAY_INTEGRITY_CLOUD_PROJECT_NUMBER`, and Lab-only `LAB_INVITE_CREDENTIAL`.
+## Deployment and deeper documentation
 
-## Cloud deployment
+- [Project story](aboutproject.md)
+- [Cloud deployment](docs/CLOUD_DEPLOYMENT.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Performance contract](docs/PERFORMANCE.md)
+- [Validation record](docs/VALIDATION.md)
+- [Privacy policy draft](docs/PRIVACY.md)
 
-See [Cloud deployment](docs/CLOUD_DEPLOYMENT.md). Apply all migrations in order, deploy `api` and `mcp-server`, configure Supabase OAuth with asymmetric JWT signing, deploy `oauth-consent` to Cloudflare Pages, and keep production feature flags closed until the dev gates pass.
+Production capabilities are released behind server configuration flags so a cloud failure never disables the local bubble, Quick Fill, vault, or reminders.
 
-The cloud retrieval gate is `npm run eval:retrieval -- --cleanup`. It requires an explicitly confirmed disposable dev user, runs 50 English and 50 Hinglish queries, and fails if either Recall@5 is below 85%.
+## Current scope and limitations
 
-The Supabase CLI is intentionally not installed into the application dependency tree. `backend/scripts/deploy-supabase.ps1` checks for an authenticated CLI before changing a remote project.
-
-## Privacy and security boundaries
-
-- Local-only records never enter cloud requests unless selected for a single explicit action.
-- Raw screenshots and recordings never enter Supabase DB or Storage.
-- Generated images are cloud-saved only after Save and are encrypted before upload.
-- Screen content is untrusted data and cannot directly authorize actions.
-- Financial, credential, OTP, biometric, permission, package-install, protected, and configured sensitive screens remain hard-blocked.
-- MCP cannot read local-only data. MCP writes/deletes need an exact preview, explicit user confirmation, matching OAuth client grant, and a one-use token.
-- The app cannot write native ChatGPT Memory. ChatGPT can retrieve Context Bubble memory only after the user connects this MCP server.
-
-See [Threat model](docs/THREAT_MODEL.md), [Performance contract](docs/PERFORMANCE.md), [Validation record](docs/VALIDATION.md), and [Privacy draft](docs/PRIVACY.md).
-
-## Honest remaining external gates
-
-Source implementation does not create or own Manjunath’s third-party accounts. Final live cloud validation still requires the two Supabase project references/credentials, Supabase OAuth enablement, Google OAuth/Calendar credentials, a Play Console cloud project/service account, Ed25519 production keys, and a Cloudflare deployment. Long-duration 8-hour battery, 24-hour soak, seven-day dogfood, multi-OEM, and live 120 Hz gates require connected hardware and elapsed real time; these results must be measured, not inferred.
+- Android cannot restart an application after the user force-stops it, and some OEM background managers require explicit user repair.
+- Protected screens and hard-blocked sensitive applications intentionally provide no screen context.
+- ChatGPT accesses Shared AI memory only through the connected Context Bubble MCP; it does not continuously monitor the phone or inherit native ChatGPT Memory.
+- Image clipboard support varies by target application, so Share and Save remain reliable fallbacks.
+- The Play build can prepare supported actions but does not give a model unrestricted control over arbitrary taps, scrolling, credentials, purchases, or sending messages.
