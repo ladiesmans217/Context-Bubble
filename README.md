@@ -87,6 +87,24 @@ This does **not** modify native ChatGPT Memory. Context Bubble remains the sourc
 | Deterministic Accessibility automation | Lab APK only; compile-time excluded from Play |
 | iOS system-wide bubble | Outside the current scope because iOS has no equivalent arbitrary overlay API |
 
+## How GPT-5.6 and Codex were used
+
+GPT-5.6 is part of the product runtime, while Codex accelerated the engineering workflow.
+
+The backend uses an environment-configurable model router instead of sending every request to the most expensive model. In the default `budget` profile, frequent Ask and memory-extraction work uses smaller models while **GPT-5.6 Luna** handles genuinely complex reasoning. The optional `quality` profile routes normal screen questions to **GPT-5.6 Terra**, memory extraction to **GPT-5.6 Luna**, and complex planning to **GPT-5.6 Sol**. Responses stream with `store:false`; screen content is marked as untrusted, model output is converted into typed plans, and a deterministic device policy remains the final authority for actions.
+
+Codex helped turn the original product conversation into a phased architecture and then shortened the build-test-fix loop. It inspected and edited the Kotlin application, TypeScript backend, Room migrations, Supabase schema, MCP tools, tests, and documentation. With the Motorola connected through ADB, Codex rebuilt and installed upgrades, inspected screenshots, logcat, service state, and network failures, then fixed issues such as overlay persistence, keyboard insets, wrong-target insertion, Google reauthentication, screen-context errors, and cloud-memory payload validation.
+
+The main decisions made through this workflow were:
+
+| Decision | Why |
+|---|---|
+| Native Kotlin instead of React Native | Overlays, Accessibility, audio routing, foreground services, and autofill are platform-sensitive |
+| Classic `View` for the idle bubble, Compose for the app | Keeps the always-running hierarchy small without sacrificing maintainable settings UI |
+| Separate Play and Lab builds | Keeps experimental deterministic automation out of the public artifact |
+| Local-first storage with three memory lanes | Prevents temporary context or private data from silently becoming shared memory |
+| Context Bubble MCP instead of claiming native ChatGPT Memory sync | Gives ChatGPT explicit, revocable access to user-approved app-owned memories |
+
 ## Architecture
 
 ```mermaid
@@ -113,6 +131,19 @@ flowchart LR
 The idle path owns one small overlay view and an event-driven Accessibility listener. It does not continuously traverse view trees or keep cloud connections alive. Drag updates are frame-coalesced, overlay geometry follows live system insets, and network synchronization runs through constrained background work.
 
 The primary development device is a Motorola moto g54 5G running Android 15. Automated suites cover gesture state, inset clamping, sensitive-package precedence, target revalidation, encryption, memory-lane isolation, sync conflicts, idempotency, MCP confirmation security, and Play/Lab isolation. See the [performance contract](docs/PERFORMANCE.md) and [validation record](docs/VALIDATION.md) for the numerical gates and current evidence.
+
+## Quick start and sample data
+
+No seed database or sample dataset is required. To reproduce the main experience:
+
+1. Start the local backend and ADB reverse connection using the commands under **Local phone testing** below.
+2. Build the Play debug APK and install it with `adb install -r app/build/outputs/apk/play/debug/app-play-debug.apk`.
+3. Open Context Bubble and complete the visible health checks for notifications, display over apps, and Accessibility. Microphone permission is requested when voice is first used.
+4. Enable the bubble, open an allowed application such as Brave, and display this sample text: `My favourite cake is chocolate. Remind me to order one Friday at 3 PM.`
+5. Tap the bubble to test **Ask about screen**, then use **Remember** and approve either Local only or Shared AI. Use **Reminder** to review and confirm the extracted time.
+6. Ask “What is my favourite cake?” in Context Bubble. If Shared AI sync and the Context Bubble MCP are connected, the same approved fact can also be retrieved from ChatGPT.
+
+This sample exercises screen understanding, overlay responses, approved memory, synchronization, retrieval, and reminder confirmation without requiring private user data.
 
 ## Build and test
 
